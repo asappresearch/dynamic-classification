@@ -138,6 +138,7 @@ class RNNEncoder(nn.Module):
             The encoded output, as a float tensor of shape [B x H]
 
         """
+        # Transpose to sequence first
         data = data.transpose(0, 1)
         if padding_mask is not None:
             padding_mask = padding_mask.transpose(0, 1)
@@ -158,13 +159,14 @@ class RNNEncoder(nn.Module):
             output, state = self.rnn(packed, state)
             output, _ = nn.utils.rnn.pad_packed_sequence(output)
 
+        # back to batch first
         output = output.transpose(0, 1).contiguous()
 
         # Compute lengths and pool the last hidden state before padding
         if padding_mask is None:
-            lengths = torch.tensor([data.size(1)] * data.size(0)).long()
+            lengths = torch.tensor([output.size(1)] * output.size(0)).long()
         else:
-            lengths = padding_mask.long().sum(dim=1)
+            lengths = padding_mask.long().sum(dim=0)
 
         return output[torch.arange(output.size(0)).long(), lengths - 1, :]
 
