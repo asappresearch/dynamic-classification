@@ -157,8 +157,7 @@ def train(args):
 
     # Save the best model
     print("Finisehd training.")
-    with open(os.path.join(args.output_dir, 'model.pt'), 'w') as f:
-        torch.save(best_model, f)
+    torch.save(best_model, os.path.join(args.output_dir, 'model.pt'))
 
 
 if __name__ == '__main__':
