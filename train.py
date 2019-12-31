@@ -117,7 +117,7 @@ def train(args):
             encodings, labels = [], []
             for text, label in train_eval_sampler:
                 padding_mask = (text != model.padding_idx).byte()
-                text_embeddings = model.embedding_dropout(model.embedding(query))
+                text_embeddings = model.embedding_dropout(model.embedding(text))
                 text_encoding = model.encoder(text_embeddings, padding_mask=padding_mask)
                 labels.append(label.cpu())
                 encodings.append(text_encoding.cpu())
