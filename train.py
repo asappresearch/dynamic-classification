@@ -85,10 +85,11 @@ def train(args):
 
                 # Move to device
                 batch = tuple(t.to(device) for t in batch)
+                query, query_label, support, support_label = batch
 
                 # Compute loss
-                pred, target = model(*batch)
-                loss = loss_fn(pred, target)
+                pred = model(query, support, support_label)
+                loss = loss_fn(pred, query_label)
                 loss.backward()
 
                 # Clip gradients if necessary
@@ -115,7 +116,9 @@ def train(args):
             # First compute prototypes over the training data
             encodings, labels = [], []
             for text, label in train_eval_sampler:
-                text_encoding = model.embedder(text)
+                padding_mask = (text != model.padding_idx).byte()
+                text_embeddings = model.embedding_dropout(model.embedding(query))
+                text_encoding = model.encoder(text_embeddings, padding_mask=padding_mask)
                 labels.append(label.cpu())
                 encodings.append(text_encoding.cpu())
             # Compute prototypes
@@ -126,9 +129,9 @@ def train(args):
             _preds, _targets = [], []
             for batch in val_sampler:
                 # Move to device
-                batch = tuple(t.to(device) for t in batch)
+                source, target = tuple(t.to(device) for t in batch)
 
-                pred, target = model(*batch, prototypes=prototypes)
+                pred = model(source, prototypes=prototypes)
                 _preds.append(pred.cpu())
                 _targets.append(target.cpu())
 
@@ -192,6 +195,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=100, help="Number of training and evaluation steps.")
     parser.add_argument('--eval_batch_size', type=int, default=128, help="Batch size used during evaluation.")
     parser.add_argument('--learning_rate', type=float, default=0.001, help="The learning rate.")
+    parser.add_argument('--max_grad_norm', type=float, default=None, help="Maximum grad norm to clip at.")
 
     args = parser.parse_args()
     train(args)

@@ -302,7 +302,7 @@ class PrototypicalTextClassifier(nn.Module):
             prototypes = prototypes
         elif support is not None and support_label is not None:
             padding_mask = (support != self.padding_idx).byte()
-            support_embeddings = self.embedding_dropout(self.embedding(query))
+            support_embeddings = self.embedding_dropout(self.embedding(support))
             support_encoding = self.encoder(support_embeddings, padding_mask=padding_mask)
 
             # Compute prototypes
