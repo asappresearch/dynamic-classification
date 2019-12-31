@@ -222,6 +222,7 @@ class PrototypicalTextClassifier(nn.Module):
         else:
             raise ValueError(f"Distance should be one of: ['euclidean', 'hyperbolic'], but got {distance}")
 
+        self.padding_idx = padding_idx
         self.distance_module = dist
         self.mean_module = mean
         self.embedding_dropout = nn.Dropout(embedding_dropout)
@@ -299,7 +300,7 @@ class PrototypicalTextClassifier(nn.Module):
             prototypes = prototypes
         elif support is not None and support_label is not None:
             padding_mask = (support != self.padding_idx).byte()
-            support_embeddings = self.embedding_dropout(self.embedding(support))
+            support_embeddings = self.embedding_dropout(self.embedding(query))
             support_encoding = self.encoder(support_embeddings, padding_mask=padding_mask)
 
             # Compute prototypes

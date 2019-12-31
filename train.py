@@ -19,17 +19,22 @@ def train(args):
     global_step = 0
     best_metric = None
     best_model: Dict[str, torch.Tensor] = dict()
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+
     writer = SummaryWriter(log_dir=args.output_dir)
 
     # We use flambe to do the data preprocessing
     # More info at https://flambe.ai
-    text_field = TextField(lower=args.lowercase, embeddings=args.embeddings)
+    print("Performing preprocessing (possibly download embeddings).")
+    embeddings = args.embeddings if args.use_pretrained_embeddings else None
+    text_field = TextField(lower=args.lowercase, embeddings=embeddings, embeddings_format='gensim')
     label_field = LabelField()
     transforms = {'text': text_field, 'label': label_field}
     dataset = TabularDataset.from_path(args.train_path,
                                        args.val_path,
-                                       sep=',',
-                                       transforms=transforms)
+                                       sep=',' if args.file_type == 'csv' else '\t',
+                                       transform=transforms)
 
     # Create samplers
     train_sampler = EpisodicSampler(dataset.train,
@@ -62,6 +67,7 @@ def train(args):
     parameters = (p for p in model.parameters() if p.requires_grad)
     optimizer = torch.optim.Adam(parameters, lr=args.learning_rate)
 
+    print("Beginning training.")
     for epoch in range(args.num_epochs):
 
         ######################
@@ -147,6 +153,7 @@ def train(args):
         writer.add_scalar('Validation/Accuracy', val_metric, epoch)
 
     # Save the best model
+    print("Finisehd training.")
     with open(os.path.join(args.output_dir, 'model.pt'), 'w') as f:
         torch.save(best_model, f)
 
@@ -154,33 +161,37 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Required
-    parser.add_argument('train_path', type=str, required=True,
+    parser.add_argument('--train_path', type=str, required=True,
                         help="Path to training data. Should be a CSV with \
                               the text in the first column and label in the second")
-    parser.add_argument('val_path', type=str, required=True,
+    parser.add_argument('--val_path', type=str, required=True,
                         help="Path to validation data. Should be a CSV with \
                               the text in the first column and label in the second")
-    parser.add_argument('output_dir', type=str, required=True,
+    parser.add_argument('--output_dir', type=str, required=True,
                         help="Path to output directory")
 
     # Optional
-    parser.add_argument('distance', type=str, choices=['euclidean', 'hyperbolic'],
+    parser.add_argument('--file_type', type=str, default='csv', choices=['csv', 'tsv'],
+                        help="Handle CSV or TSV inputs.")
+    parser.add_argument('--distance', type=str, choices=['euclidean', 'hyperbolic'],
                         default='euclidean', help="Distance metric to use.")
-    parser.add_argument('device', type=str, default=None, help="Device to use.")
-    parser.add_argument('lowercase', type=bool, default=False, help="Whether to lowercase the text")
-    parser.add_argument('embeddings', type=str, default='glove-wiki-gigaword-300',
+    parser.add_argument('--device', type=str, default=None, help="Device to use.")
+    parser.add_argument('--use_pretrained_embeddings', type=bool, default=True,
+                        help="Whether to use pretrained embeddings")
+    parser.add_argument('--lowercase', type=bool, default=False, help="Whether to lowercase the text")
+    parser.add_argument('--embeddings', type=str, default='glove-wiki-gigaword-300',
                         help="Gensim embeddings to use.")
-    parser.add_argument('n_layers', type=int, default=2, help="Number of layers in the RNN.")
-    parser.add_argument('hidden_dim', type=int, default=128, help="Hidden dimension of the RNN.")
-    parser.add_argument('embedding_dim', type=int, default=128, help="Dimension of the token embeddings.")
+    parser.add_argument('--n_layers', type=int, default=2, help="Number of layers in the RNN.")
+    parser.add_argument('--hidden_dim', type=int, default=128, help="Hidden dimension of the RNN.")
+    parser.add_argument('--embedding_dim', type=int, default=128, help="Dimension of the token embeddings.")
 
-    parser.add_argument('n_support', type=int, default=1, help="Number of support points per class.")
-    parser.add_argument('n_query', type=int, default=64, help="Total number of query points (not per class)")
-    parser.add_argument('n_classes', type=int, default=None, help="Number of classes per episode")
-    parser.add_argument('n_episodes', type=int, default=100, help="Number of episodes per 'epoch'")
-    parser.add_argument('num_epochs', type=int, default=100, help="Number of training and evaluation steps.")
-    parser.add_argument('eval_batch_size', type=int, default=128, help="Batch size used during evaluation.")
-    parser.add_argument('learning_rate', type=float, default=0.001, help="The learning rate.")
+    parser.add_argument('--n_support', type=int, default=1, help="Number of support points per class.")
+    parser.add_argument('--n_query', type=int, default=64, help="Total number of query points (not per class)")
+    parser.add_argument('--n_classes', type=int, default=None, help="Number of classes per episode")
+    parser.add_argument('--n_episodes', type=int, default=100, help="Number of episodes per 'epoch'")
+    parser.add_argument('--num_epochs', type=int, default=100, help="Number of training and evaluation steps.")
+    parser.add_argument('--eval_batch_size', type=int, default=128, help="Batch size used during evaluation.")
+    parser.add_argument('--learning_rate', type=float, default=0.001, help="The learning rate.")
 
     args = parser.parse_args()
     train(args)
